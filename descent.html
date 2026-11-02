@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OLYMPUS-DESCENT // Starship Autonomous Mars Landing System</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@300;400;600;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS, Three.js & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body {
+      background-color: #030407;
+      color: #E2E8F0;
+      font-family: 'JetBrains Mono', monospace;
+      user-select: none;
+      overflow-x: hidden;
+    }
+    .font-hud { font-family: 'Chakra Petch', sans-serif; }
+    
+    .hud-laser-grid {
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(255, 68, 0, 0.05) 0%, transparent 80%),
+        linear-gradient(rgba(255, 68, 0, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 68, 0, 0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 24px 24px, 24px 24px;
+    }
+
+    .glass-deck {
+      background: rgba(9, 11, 16, 0.82);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 68, 0, 0.2);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9), inset 0 0 15px rgba(255, 68, 0, 0.02);
+    }
+    .glass-deck:hover { border-color: rgba(255, 115, 0, 0.45); }
+
+    .glow-orange { text-shadow: 0 0 12px rgba(255, 68, 0, 0.7); }
+    .glow-cyan { text-shadow: 0 0 12px rgba(0, 243, 255, 0.7); }
+
+    .crt-scanlines::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%);
+      background-size: 100% 3px;
+      pointer-events: none;
+      z-index: 50;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body class="hud-laser-grid crt-scanlines min-h-screen flex flex-col justify-between">
+
+  <!-- TOP MARS EDL FLIGHT DECK HEADER -->
+  <header class="glass-deck border-b border-orange-500/30 px-6 py-3 sticky top-0 z-40 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center space-x-6">
+      <div class="flex items-center space-x-3">
+        <span class="relative flex h-3 w-3">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-500 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-3 w-3 bg-orange-600"></span>
+        </span>
+        <h1 class="font-hud font-bold text-xl tracking-wider text-white">
+          STARSHIP <span class="text-orange-500">//</span> OLYMPUS-DESCENT
+        </h1>
+      </div>
+      <div class="hidden lg:flex items-center space-x-3 text-xs border-l border-neutral-800 pl-6 text-neutral-400">
+        <span>DESTINATION: <strong class="text-orange-400 font-mono">MARS (JEZERO BASIN LZ-3)</strong></span>
+        <span>•</span>
+        <span>ONE-WAY COMM LAG: <strong class="text-neutral-200 font-mono">03m 14s (AUTONOMOUS LOCK)</strong></span>
+      </div>
+    </div>
+
+    <div class="flex items-center space-x-4">
+      <div class="text-right">
+        <div class="text-[10px] text-neutral-500 uppercase tracking-widest">TOUCHDOWN ESTIMATE</div>
+        <div id="touchdown-timer" class="font-hud text-lg font-bold text-orange-400 glow-orange">T- 00:01:42</div>
+      </div>
+      <button onclick="toggleAudio()" id="btn-audio" class="p-2 border border-orange-500/30 hover:border-orange-400 text-orange-400 rounded transition text-xs flex items-center gap-2">
+        <i data-lucide="radio" class="w-4 h-4"></i>
+        <span id="audio-status">RADAR SOUND: MUTED</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN MULTI-PANEL COCKPIT INTERFACE -->
+  <main class="flex-1 p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+
+    <!-- LEFT PANEL: KINEMATICS, RAPTOR CLUSTER & GIMBAL (3 COLS) -->
+    <aside class="lg:col-span-3 space-y-5 flex flex-col">
+      <!-- Radar Altimetry & Velocity Gauges -->
+      <div class="glass-deck p-5 rounded-lg flex-1">
+        <div class="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
+          <span class="text-xs uppercase text-neutral-400 flex items-center gap-2">
+            <i data-lucide="gauge" class="w-4 h-4 text-orange-400"></i> Radar Altimetry Matrix
+          </span>
+          <span class="text-[10px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30 font-bold">LIDAR LOCKED</span>
+        </div>
+
+        <div class="space-y-4">
+          <div class="bg-black/60 p-3 rounded border border-neutral-800">
+            <div class="flex justify-between text-xs text-neutral-400 mb-1">
+              <span>RADAR ALTITUDE (AGL)</span>
+              <span class="text-orange-400 font-bold">TERRAIN RELATIVE</span>
+            </div>
+            <div id="alt-display" class="font-hud text-3xl font-bold text-white tracking-wider glow-orange">1,248 m</div>
+            <div class="w-full bg-neutral-900 h-1.5 rounded mt-2 overflow-hidden">
+              <div id="alt-bar" class="bg-orange-500 h-full w-[65%] transition-all duration-300"></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-black/60 p-3 rounded border border-neutral-800">
+              <div class="text-[10px] text-neutral-400">DESCENT RATE (Vz)</div>
+              <div id="descent-rate" class="font-hud text-xl text-orange-400 font-bold">-48.2 m/s</div>
+            </div>
+            <div class="bg-black/60 p-3 rounded border border-neutral-800">
+              <div class="text-[10px] text-neutral-400">LATERAL DRIFT</div>
+              <div class="font-hud text-xl text-emerald-400 font-bold">0.4 m/s</div>
+            </div>
+          </div>
+
+          <!-- Raptor Landing Burn Ignition Matrix -->
+          <div class="pt-2">
+            <div class="text-xs text-neutral-400 uppercase mb-2 flex items-center justify-between">
+              <span>Raptor Landing Trio</span>
+              <span id="raptor-mode" class="text-[11px] text-amber-400 font-bold">PRE-CHILL COMPLETE</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+              <div class="bg-neutral-900/90 p-2.5 rounded border border-orange-500/30">
+                <div class="text-[9px] text-neutral-500">RC-1</div>
+                <div id="rc1-status" class="text-emerald-400 font-bold text-[11px] mt-1">ARMED</div>
+              </div>
+              <div class="bg-neutral-900/90 p-2.5 rounded border border-orange-500/30">
+                <div class="text-[9px] text-neutral-500">RC-2</div>
+                <div id="rc2-status" class="text-emerald-400 font-bold text-[11px] mt-1">ARMED</div>
+              </div>
+              <div class="bg-neutral-900/90 p-2.5 rounded border border-orange-500/30">
+                <div class="text-[9px] text-neutral-500">RC-3</div>
+                <div id="rc3-status" class="text-emerald-400 font-bold text-[11px] mt-1">ARMED</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Attitude Pitch & Angle of Attack -->
+          <div class="border-t border-neutral-800 pt-3">
+            <div class="flex justify-between text-xs text-neutral-400 mb-1">
+              <span>PITCH ATTITUDE (AoA)</span>
+              <span id="pitch-stat" class="text-white font-mono font-bold">68.4° BELLY-FLOP</span>
+            </div>
+            <div class="w-full bg-neutral-900 h-2 rounded overflow-hidden">
+              <div id="pitch-bar" class="bg-cyan-400 h-full w-[76%] transition-all duration-300"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Trigger Buttons -->
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="triggerLandingFlip()" id="flip-btn" class="glass-deck hover:bg-orange-600/20 text-orange-400 hover:text-white p-3 rounded font-hud tracking-wider text-xs border-orange-500/40 flex items-center justify-center gap-2 transition active:scale-95">
+          <i data-lucide="refresh-cw" class="w-4 h-4 text-orange-400"></i> FLIP TO VERTICAL
+        </button>
+        <button onclick="pulseRCSBrakes()" class="glass-deck hover:bg-cyan-600/20 text-cyan-400 hover:text-white p-3 rounded font-hud tracking-wider text-xs border-cyan-500/40 flex items-center justify-center gap-2 transition active:scale-95">
+          <i data-lucide="zap" class="w-4 h-4 text-cyan-400"></i> NITROGEN RCS
+        </button>
+      </div>
+    </aside>
+
+    <!-- CENTER PANEL: 3D THREE.JS MARS TOPOGRAPHY & STARSHIP TRAJECTORY (6 COLS) -->
+    <section class="lg:col-span-6 glass-deck rounded-lg overflow-hidden relative min-h-[460px] flex flex-col">
+      <!-- 3D Canvas Mount Point -->
+      <div id="threejs-canvas" class="absolute inset-0 w-full h-full"></div>
+
+      <!-- Live Tactical HUD Graphic Overlays -->
+      <div class="absolute inset-0 pointer-events-none p-5 flex flex-col justify-between">
+        <div class="flex justify-between items-start">
+          <div class="bg-black/80 border border-orange-500/30 px-3 py-1.5 rounded text-[11px] font-mono">
+            <span class="text-neutral-400">LIDAR TERRAIN SCANNER:</span>
+            <span class="text-orange-400 font-bold ml-1">POINT CLOUD ACTIVE [500k PTS/S]</span>
+          </div>
+          <div class="bg-black/80 border border-neutral-800 px-3 py-1.5 rounded text-[11px] text-right font-mono">
+            <span class="text-neutral-500">TARGET LZ:</span>
+            <span class="text-emerald-400 font-bold ml-1">0.00° DEV (CENTER POINT)</span>
+          </div>
+        </div>
+
+        <!-- Center Aim Target Reticle -->
+        <div class="m-auto border-2 border-orange-500/40 w-40 h-40 rounded-full flex items-center justify-center relative">
+          <div class="w-3 h-3 bg-orange-500 rounded-full animate-ping"></div>
+          <div class="absolute w-full h-[1px] bg-orange-500/30"></div>
+          <div class="absolute h-full w-[1px] bg-orange-500/30"></div>
+          <span class="absolute -top-5 text-[10px] text-orange-400 font-hud tracking-widest">TOUCHDOWN VECTOR</span>
+        </div>
+
+        <div class="flex justify-between items-end text-xs font-mono">
+          <div class="bg-black/75 p-2 rounded border border-neutral-800">
+            <span class="text-neutral-500">TERRAIN SLOPE:</span>
+            <span class="text-emerald-400 ml-1 font-bold">0.8° (SAFE &lt; 5.0°)</span>
+          </div>
+          <div class="text-[10px] text-neutral-500">
+            AUTONOMOUS GUIDANCE V4.9 // MARS ORBITAL RELAY SYNCED
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: NEURAL HAZARD DETECTION & FLIGHT LOGS (3 COLS) -->
+    <aside class="lg:col-span-3 flex flex-col space-y-5">
+      <div class="glass-deck p-5 rounded-lg flex-1 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
+            <span class="text-xs uppercase text-neutral-300 flex items-center gap-2">
+              <i data-lucide="shield-alert" class="w-4 h-4 text-orange-400"></i> Autonomous AI Hazard Matrix
+            </span>
+            <span class="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse"></span>
+          </div>
+
+          <!-- Hazard Indicators -->
+          <div class="space-y-3 text-xs mb-4">
+            <div class="flex justify-between items-center bg-black/50 p-2.5 rounded border border-neutral-800">
+              <span class="text-neutral-400">Boulder Density (&gt;0.5m)</span>
+              <span class="text-emerald-400 font-bold">0.00 / 100m²</span>
+            </div>
+            <div class="flex justify-between items-center bg-black/50 p-2.5 rounded border border-neutral-800">
+              <span class="text-neutral-400">Surface Regolith Compaction</span>
+              <span class="text-cyan-400 font-bold">185 kPa (NOMINAL)</span>
+            </div>
+            <div class="flex justify-between items-center bg-black/50 p-2.5 rounded border border-neutral-800">
+              <span class="text-neutral-400">Fuel Reserves (Delta-V)</span>
+              <span class="text-amber-400 font-bold">+280 m/s MARGIN</span>
+            </div>
+          </div>
+
+          <!-- AI Autonomous Decision Log Stream -->
+          <div class="text-[11px] text-neutral-500 uppercase tracking-wider mb-2 font-hud">Autonomous Event Log</div>
+          <div id="edl-logs" class="space-y-2 text-xs font-mono max-h-[220px] overflow-y-auto pr-1">
+            <div class="text-neutral-500">[T-02:10] Entry interface crossed. Atmospheric braking steady.</div>
+            <div class="text-neutral-400">[T-01:55] Flap controllers: Center-of-mass trim optimized.</div>
+            <div class="bg-orange-950/40 p-2 rounded border border-orange-500/20 text-orange-300">
+              <strong>AI_EDL:</strong> LZ-3 crater confirmed clear. Vertical flip planned at AGL 600m.
+            </div>
+          </div>
+        </div>
+
+        <!-- Copilot Prompt Input Field -->
+        <div class="pt-4 border-t border-neutral-800">
+          <form onsubmit="handleAICopilotInput(event)" class="relative">
+            <input id="copilot-input" type="text" placeholder="Command Copilot: e.g. Offset LZ +10m south..." class="w-full bg-black/90 border border-neutral-800 focus:border-orange-500 text-xs px-3 py-2.5 rounded text-white outline-none pr-9 font-mono transition">
+            <button type="submit" class="absolute right-2 top-2 text-orange-400 hover:text-white">
+              <i data-lucide="send" class="w-4 h-4"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Quick Switch Site -->
+      <div class="glass-deck p-3 rounded-lg text-xs flex justify-between items-center">
+        <span class="text-neutral-400">TOUCHDOWN ABORT VECTOR:</span>
+        <button onclick="emergencyAbortHold()" class="px-3 py-1 bg-red-950 hover:bg-red-800 text-red-300 font-bold rounded border border-red-500/40 text-[10px] tracking-widest transition">
+          GO-AROUND BURN
+        </button>
+      </div>
+    </aside>
+  </main>
+
+  <!-- BOTTOM STATUS BANNER -->
+  <footer class="glass-deck border-t border-orange-500/20 px-6 py-2.5 text-[11px] text-neutral-500 flex flex-wrap justify-between items-center gap-4 z-40">
+    <div class="flex items-center gap-4">
+      <span>AEROBRAKING HEAT SHIELD: <strong class="text-emerald-400 font-mono">1,120°C (DECREASING)</strong></span>
+      <span>•</span>
+      <span>HEADER TANKS: <strong class="text-white font-mono">PRESSURIZED (COPV 420 BAR)</strong></span>
+    </div>
+    <div class="flex items-center space-x-6 font-mono text-[11px]">
+      <span class="text-orange-400">GUIDANCE: HEX-AI FAILSAFE ARMED</span>
+      <span class="text-white">UTC: 2026-11-02 09:41:22</span>
+    </div>
+  </footer>
+
+  <!-- SCRIPT LOGIC: THREE.JS MARS CANYON & DESCENT LOGIC -->
+  <script>
+    lucide.createIcons();
+
+    /* ========================================================
+       1. PROCEDURAL SOUND SYNTHESIS (Web Audio API)
+       ======================================================== */
+    let audioCtx = null;
+    let soundEnabled = false;
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    function toggleAudio() {
+      initAudio();
+      soundEnabled = !soundEnabled;
+      document.getElementById('audio-status').textContent = soundEnabled ? "RADAR SOUND: ACTIVE" : "RADAR SOUND: MUTED";
+      document.getElementById('btn-audio').classList.toggle('bg-orange-500/20', soundEnabled);
+      if (soundEnabled) playPing(1200, 0.08);
+    }
+
+    function playPing(freq = 950, dur = 0.06) {
+      if (!soundEnabled || !audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + dur);
+      } catch (e) {}
+    }
+
+    function playThrusterNoise(duration = 0.4) {
+      if (!soundEnabled || !audioCtx) return;
+      try {
+        const bufferSize = audioCtx.sampleRate * duration;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 400;
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start();
+      } catch (e) {}
+    }
+
+    /* ========================================================
+       2. THREE.JS PROCEDURAL 3D MARS TERRAIN & STARSHIP MODEL
+       ======================================================== */
+    const container = document.getElementById('threejs-canvas');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x07080D, 0.035);
+
+    const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 100);
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    container.appendChild(renderer.domElement);
+
+    // Procedural Topographical Mars Terrain Grid
+    const gridRes = 50;
+    const terrainGeo = new THREE.PlaneGeometry(60, 60, gridRes, gridRes);
+    const pos = terrainGeo.attributes.position;
+    
+    // Deform terrain with procedural Martian craters and ridges
+    for (let i = 0; i < pos.count; i++) {
+      const vx = pos.getX(i);
+      const vy = pos.getY(i);
+      const distFromCenter = Math.sqrt(vx * vx + vy * vy);
+      // Flat circular landing zone in center, jagged hills outside
+      if (distFromCenter < 5) {
+        pos.setZ(i, 0); 
+      } else {
+        const height = (Math.sin(vx * 0.4) * Math.cos(vy * 0.4) * 2.2) + 
+                       (Math.sin(vx * 0.8) * 0.6);
+        pos.setZ(i, height);
+      }
+    }
+    terrainGeo.computeVertexNormals();
+
+    const terrainMat = new THREE.MeshBasicMaterial({
+      color: 0xFF4500,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.28
+    });
+    const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+    terrain.rotation.x = -Math.PI / 2;
+    terrain.position.y = -6;
+    scene.add(terrain);
+
+    // Concentric Landing Target Rings at Landing Zone
+    const targetRingGeo = new THREE.RingGeometry(1.2, 1.4, 32);
+    const targetRingMat = new THREE.MeshBasicMaterial({ color: 0x10B981, side: THREE.DoubleSide });
+    const targetRing = new THREE.Mesh(targetRingGeo, targetRingMat);
+    targetRing.rotation.x = -Math.PI / 2;
+    targetRing.position.set(0, -5.9, 0);
+    scene.add(targetRing);
+
+    // Starship Geometry (Cylinder + Nose Cone + Aft Flaps)
+    const shipGroup = new THREE.Group();
+
+    // Body Tube
+    const bodyGeo = new THREE.CylinderGeometry(0.5, 0.5, 3.2, 16);
+    const shipMat = new THREE.MeshBasicMaterial({ color: 0xDCE3EA, wireframe: true });
+    const body = new THREE.Mesh(bodyGeo, shipMat);
+    shipGroup.add(body);
+
+    // Nosecone
+    const noseGeo = new THREE.ConeGeometry(0.5, 1.2, 16);
+    const nose = new THREE.Mesh(noseGeo, shipMat);
+    nose.position.y = 2.2;
+    shipGroup.add(nose);
+
+    // Forward Flaps
+    const flapGeo = new THREE.BoxGeometry(1.8, 0.4, 0.05);
+    const flaps = new THREE.Mesh(flapGeo, new THREE.MeshBasicMaterial({ color:
