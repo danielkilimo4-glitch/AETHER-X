@@ -397,4 +397,257 @@
       e.preventDefault();
       const input = document.getElementById('copilot-text');
       const val = input.value.trim();
-  
+  /* ========================================================
+       5. ADVANCED STREAMING AI NEURAL COPILOT
+       ======================================================== */
+    const AI_KNOWLEDGE_BASE = {
+      burn: "Executing orbital delta-V matrix: Planned 14.2s apogee raise burn at T+ 00:48:12. Estimated fuel expenditure: 1,420 kg CH4 / 5,100 kg LOX.",
+      pressure: "Chamber pressures across vacuum Raptors: RC-1 @ 350.2 bar, RC-2 @ 349.8 bar. Pre-burner temperatures nominal at 780 K.",
+      starlink: "Starlink Optical Inter-Satellite Links (ISL): 4 cross-links locked. Downlink bandwidth: 1.42 Gbps to Boca Chica Gateway.",
+      shield: "PICA-X & Hexagonal Tile Matrix: 100% integrity. Windward surface sensor array confirms zero micro-meteorite penetrations.",
+      abort: "WARNING: Automated abort corridor checked. Vehicle state is NOMINAL. All flight parameters within 3-sigma safety envelopes."
+    };
+
+    function sendCopilotMessage(e) {
+      if (e) e.preventDefault();
+      const input = document.getElementById('copilot-text');
+      const val = input.value.trim();
+      if (!val) return;
+
+      appendChatMessage('USER', val);
+      input.value = "";
+      playInterfaceSound(600, 'sine', 0.04);
+
+      // Simulate AI Streaming Response
+      setTimeout(() => {
+        const queryLower = val.toLowerCase();
+        let matchedResponse = "Flight telemetry parameters analyzed. Vector guidance steady, orbital eccentricity e = 0.0012.";
+
+        for (const [key, response] of Object.entries(AI_KNOWLEDGE_BASE)) {
+          if (queryLower.includes(key)) {
+            matchedResponse = response;
+            break;
+          }
+        }
+
+        streamAIResponse(matchedResponse);
+      }, 350);
+    }
+
+    function appendChatMessage(sender, text) {
+      const thread = document.getElementById('ai-chat-thread');
+      const msg = document.createElement('div');
+      msg.className = 'flex items-start space-x-2 py-1';
+      
+      if (sender === 'USER') {
+        msg.innerHTML = `
+          <span class="text-white font-bold">[PILOT]:</span>
+          <span class="text-neutral-200">${escapeHtml(text)}</span>
+        `;
+      }
+      thread.appendChild(msg);
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    function streamAIResponse(fullText) {
+      const thread = document.getElementById('ai-chat-thread');
+      const msg = document.createElement('div');
+      msg.className = 'flex items-start space-x-2 py-1';
+      msg.innerHTML = `
+        <span class="text-cyan-400 font-bold">[STAR-AI]:</span>
+        <span class="text-neutral-300 font-mono-tech leading-relaxed"><span class="stream-content"></span><span class="animate-pulse text-cyan-400">▌</span></span>
+      `;
+      thread.appendChild(msg);
+      thread.scrollTop = thread.scrollHeight;
+
+      const contentSpan = msg.querySelector('.stream-content');
+      const cursor = msg.querySelector('.animate-pulse');
+      let index = 0;
+
+      const streamTimer = setInterval(() => {
+        if (index < fullText.length) {
+          contentSpan.textContent += fullText.charAt(index);
+          index++;
+          thread.scrollTop = thread.scrollHeight;
+          if (index % 4 === 0) playInterfaceSound(1800, 'triangle', 0.015);
+        } else {
+          clearInterval(streamTimer);
+          cursor.remove(); // Remove blinking block cursor once done
+        }
+      }, 16);
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    /* ========================================================
+       6. FULL MULTI-VIEW WORKSPACE SWITCHER
+       ======================================================== */
+    let activeView = 'telemetry';
+
+    function switchView(viewName) {
+      activeView = viewName;
+
+      // Update Sidebar Button Styles
+      const navIds = ['telemetry', 'orbit', 'ai', 'engines'];
+      navIds.forEach(id => {
+        const btn = document.getElementById(`nav-${id}`);
+        if (!btn) return;
+        if (id === viewName) {
+          btn.className = 'p-2.5 rounded-lg text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 transition';
+        } else {
+          btn.className = 'p-2.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition';
+        }
+      });
+
+      // Switch Main View Panes
+      const viewContainers = document.querySelectorAll('.view-pane');
+      viewContainers.forEach(pane => pane.classList.add('hidden'));
+
+      const activePane = document.getElementById(`view-pane-${viewName}`);
+      if (activePane) {
+        activePane.classList.remove('hidden');
+      }
+
+      playInterfaceSound(800, 'sine', 0.05);
+      triggerNotification('Workspace Switched', `Context switched to: ${viewName.toUpperCase()} DECK`);
+    }
+
+    /* ========================================================
+       7. 33-RAPTOR SUPER HEAVY ENGINE CLUSTER MATRIX
+       ======================================================== */
+    function renderRaptorCluster() {
+      const container = document.getElementById('raptor-matrix-grid');
+      if (!container) return;
+      container.innerHTML = '';
+
+      // 33 Raptors: 3 Center (Gimbal), 10 Inner Ring, 20 Outer Ring
+      for (let i = 1; i <= 33; i++) {
+        const engine = document.createElement('div');
+        const isCenter = i <= 3;
+        engine.className = `p-2 rounded border text-center transition cursor-pointer select-none ${
+          isCenter 
+            ? 'bg-cyan-950/40 border-cyan-500/40 text-cyan-300 hover:border-cyan-300' 
+            : 'bg-neutral-900/60 border-white/10 text-neutral-400 hover:border-neutral-500'
+        }`;
+        engine.innerHTML = `
+          <div class="text-[9px] font-mono-tech">R-${String(i).padStart(2, '0')}</div>
+          <div class="w-1.5 h-1.5 rounded-full ${isCenter ? 'bg-cyan-400 animate-pulse' : 'bg-emerald-400'} mx-auto mt-1"></div>
+        `;
+        engine.onclick = () => {
+          playInterfaceSound(400 + i * 20, 'sine', 0.06);
+          triggerNotification(`Raptor V3 [R-${i}]`, `Chamber: 350.4 bar | Turbopump RPM: 64,200 | Flow: NOMINAL`);
+        };
+        container.appendChild(engine);
+      }
+    }
+
+    /* ========================================================
+       8. REAL-TIME CANVAS OSCILLOSCOPE (G-FORCE & ISP)
+       ======================================================== */
+    function initTelemetryGraph() {
+      const canvas = document.getElementById('telemetry-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let dataPoints = new Array(50).fill(1.0);
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Push simulated live G-Force value
+        const lastVal = dataPoints[dataPoints.length - 1];
+        const nextVal = Math.max(0.8, Math.min(3.8, lastVal + (Math.random() * 0.2 - 0.1)));
+        dataPoints.shift();
+        dataPoints.push(nextVal);
+
+        // Draw Grid Lines
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        for (let y = 0; y < canvas.height; y += 20) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(canvas.width, y);
+          ctx.stroke();
+        }
+
+        // Draw Telemetry Line
+        ctx.strokeStyle = '#00F3FF';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        const step = canvas.width / (dataPoints.length - 1);
+        dataPoints.forEach((val, i) => {
+          const x = i * step;
+          const y = canvas.height - ((val - 0.5) / 3.5) * canvas.height;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        // Update Text Overlay
+        const liveGText = document.getElementById('live-gforce');
+        if (liveGText) liveGText.textContent = `${nextVal.toFixed(2)} G`;
+
+        requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    /* ========================================================
+       9. SYNTHETIC UI SOUND GENERATOR (Web Audio API)
+       ======================================================== */
+    let sfxAudioCtx = null;
+
+    function playInterfaceSound(freq, type = 'sine', dur = 0.05) {
+      try {
+        if (!sfxAudioCtx) sfxAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = sfxAudioCtx.createOscillator();
+        const gain = sfxAudioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, sfxAudioCtx.currentTime);
+        gain.gain.setValueAtTime(0.03, sfxAudioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, sfxAudioCtx.currentTime + dur);
+        osc.connect(gain);
+        gain.connect(sfxAudioCtx.destination);
+        osc.start();
+        osc.stop(sfxAudioCtx.currentTime + dur);
+      } catch (e) {}
+    }
+
+    /* ========================================================
+       10. WINDOW TRAFFIC LIGHT CONTROLS & INITIALIZATION
+       ======================================================== */
+    function closeWindow(btn) {
+      const win = btn.closest('.app-window');
+      if (win) {
+        win.style.transition = 'all 0.2s ease';
+        win.style.opacity = '0';
+        win.style.transform = 'scale(0.95)';
+        setTimeout(() => win.remove(), 200);
+        triggerNotification('Window Closed', 'Panel detached from workspace.');
+      }
+    }
+
+    function minimizeWindow(btn) {
+      const win = btn.closest('.app-window');
+      const body = win.querySelector('div:nth-child(2)');
+      if (body) {
+        body.classList.toggle('hidden');
+        triggerNotification('Window Minimized', 'Panel state collapsed.');
+      }
+    }
+
+    function maximizeWindow(btn) {
+      const win = btn.closest('.app-window');
+      win.classList.toggle('col-span-12');
+      triggerNotification('Window Resized', 'Panel viewport expanded.');
+    }
+
+    // Auto-boot views and telemetry on load
+    window.addEventListener('DOMContentLoaded', () => {
+      renderRaptorCluster();
+      initTelemetryGraph();
+    });
+  </script>
+</body>
+</html>
