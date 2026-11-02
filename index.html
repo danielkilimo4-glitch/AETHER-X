@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AETHER-X // SpaceX Autonomous Orbital AI Core</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS & Three.js -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      --spacex-cyan: #00F3FF;
+      --spacex-red: #FF2E51;
+      --spacex-gold: #FFB020;
+    }
+    body {
+      background-color: #050608;
+      color: #E2E8F0;
+      font-family: 'JetBrains Mono', monospace;
+      overflow-x: hidden;
+    }
+    .font-hud { font-family: 'Orbitron', sans-serif; }
+    
+    /* SpaceX HUD Grid Overlay */
+    .hud-grid {
+      background-image: 
+        linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+
+    /* Glass Panels */
+    .glass-panel {
+      background: rgba(10, 14, 23, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 243, 255, 0.15);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8), inset 0 0 12px rgba(0, 243, 255, 0.03);
+    }
+    .glass-panel:hover {
+      border-color: rgba(0, 243, 255, 0.35);
+    }
+
+    /* Scanline effect */
+    .scanlines::before {
+      content: " ";
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      z-index: 40;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #07090E; }
+    ::-webkit-scrollbar-thumb { background: #00F3FF33; border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00F3FF; }
+  </style>
+</head>
+
+<body class="hud-grid scanlines min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-black">
+
+  <!-- TOP TELEMETRY HUD BAR -->
+  <header class="glass-panel border-b border-cyan-500/20 px-6 py-3 sticky top-0 z-50 flex flex-wrap items-center justify-between gap-4">
+    <!-- Brand & Status -->
+    <div class="flex items-center space-x-6">
+      <div class="flex items-center space-x-2">
+        <span class="w-2.5 h-2.5 bg-cyan-400 rounded-full animate-ping"></span>
+        <span class="font-hud font-bold text-xl tracking-widest text-white">SPACEX <span class="text-cyan-400">//</span> AETHER-X</span>
+      </div>
+      <div class="hidden md:flex items-center space-x-2 text-xs text-neutral-400 border-l border-neutral-800 pl-6">
+        <span>STARLINK CONSTELLATION: <strong class="text-emerald-400 font-mono">SYNCED (v4.8)</strong></span>
+        <span class="mx-2">•</span>
+        <span>AUTONOMOUS STAGE: <strong class="text-cyan-300 font-mono">SEPARATION COMPLETE</strong></span>
+      </div>
+    </div>
+
+    <!-- Live Mission Clock -->
+    <div class="flex items-center space-x-8">
+      <div class="text-right">
+        <div class="text-[10px] text-neutral-500 tracking-widest uppercase">Mission Elapsed Time</div>
+        <div id="mission-timer" class="font-hud text-lg tracking-wider text-cyan-400 font-bold">T+ 00:14:32.08</div>
+      </div>
+      <button id="audio-toggle" onclick="toggleAudio()" class="p-2 border border-cyan-500/30 hover:border-cyan-400 text-cyan-400 rounded transition flex items-center gap-2 text-xs">
+        <i data-lucide="volume-2" class="w-4 h-4"></i>
+        <span id="audio-label">COMM AUDIO: OFF</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN FLIGHT DECK -->
+  <main class="flex-1 p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+
+    <!-- LEFT COLUMN: RAPTOR V3 TELEMETRY & TANK VALVES (3 COLS) -->
+    <section class="lg:col-span-3 space-y-6 flex flex-col">
+      <!-- Raptor Vector Cluster -->
+      <div class="glass-panel p-5 rounded-lg flex-1">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xs tracking-wider uppercase text-neutral-400 flex items-center gap-2">
+            <i data-lucide="flame" class="w-4 h-4 text-cyan-400"></i> Raptor V3 Propulsion Matrix
+          </h2>
+          <span class="text-[10px] bg-cyan-950 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/30">HOT-FIRE NOMINAL</span>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-neutral-400">Chamber Pressure (Pc)</span>
+              <span id="pc-val" class="text-cyan-400 font-bold font-mono">352.4 bar</span>
+            </div>
+            <div class="w-full bg-neutral-900 h-2 rounded overflow-hidden">
+              <div id="pc-bar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full w-[88%] transition-all duration-300"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-neutral-400">Liquid Oxygen (LOX)</span>
+              <span id="lox-val" class="text-cyan-400 font-bold font-mono">94.2 %</span>
+            </div>
+            <div class="w-full bg-neutral-900 h-2 rounded overflow-hidden">
+              <div id="lox-bar" class="bg-cyan-400 h-full w-[94%] transition-all duration-300"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-neutral-400">Liquid Methane (CH4)</span>
+              <span id="ch4-val" class="text-cyan-400 font-bold font-mono">91.7 %</span>
+            </div>
+            <div class="w-full bg-neutral-900 h-2 rounded overflow-hidden">
+              <div id="ch4-bar" class="bg-amber-400 h-full w-[91%] transition-all duration-300"></div>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-neutral-800 grid grid-cols-2 gap-3 text-center">
+            <div class="bg-neutral-900/60 p-2.5 rounded border border-neutral-800">
+              <div class="text-[10px] text-neutral-500">VELOCITY</div>
+              <div id="vel-stat" class="font-hud text-base text-white font-bold">7,812 m/s</div>
+            </div>
+            <div class="bg-neutral-900/60 p-2.5 rounded border border-neutral-800">
+              <div class="text-[10px] text-neutral-500">ALTITUDE</div>
+              <div id="alt-stat" class="font-hud text-base text-white font-bold">241.6 km</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Autonomous Vector Thrust Controller -->
+      <div class="glass-panel p-5 rounded-lg">
+        <h3 class="text-xs tracking-wider uppercase text-neutral-400 mb-3 flex items-center gap-2">
+          <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i> AI Gimbal Vector Modulation
+        </h3>
+        <input id="thrust-slider" type="range" min="40" max="100" value="85" oninput="updateThrust(this.value)" class="w-full accent-cyan-400 cursor-pointer mb-2">
+        <div class="flex justify-between text-[11px] text-neutral-400 font-mono">
+          <span>THROTTLE: <span id="thrust-display" class="text-cyan-400 font-bold">85%</span></span>
+          <span class="text-emerald-400">GIMBAL: AUTO-BALANCED</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CENTER COLUMN: 3D THREE.JS STARSHIP ORBITAL VIEW (6 COLS) -->
+    <section class="lg:col-span-6 flex flex-col glass-panel rounded-lg overflow-hidden relative min-h-[420px]">
+      <!-- 3D Canvas Mount Point -->
+      <div id="webgl-container" class="absolute inset-0 w-full h-full"></div>
+
+      <!-- Crosshair Aerospace HUD Elements -->
+      <div class="absolute inset-0 pointer-events-none p-6 flex flex-col justify-between">
+        <div class="flex justify-between items-start">
+          <div class="bg-neutral-950/80 border border-neutral-800 px-3 py-1.5 rounded text-[11px]">
+            <span class="text-neutral-500">TRAJECTORY:</span>
+            <span class="text-cyan-300 font-bold">PARKING INSERTION [28.5° INC]</span>
+          </div>
+          <div class="text-right text-[11px] text-neutral-400">
+            <div>APOGEE: <span class="text-white font-mono">248.1 KM</span></div>
+            <div>PERIGEE: <span class="text-white font-mono">182.4 KM</span></div>
+          </div>
+        </div>
+
+        <!-- Center Crosshair Marker -->
+        <div class="m-auto border border-cyan-500/20 w-32 h-32 rounded-full flex items-center justify-center relative">
+          <div class="w-2 h-2 bg-cyan-400 rounded-full"></div>
+          <div class="absolute w-full h-[1px] bg-cyan-500/20"></div>
+          <div class="absolute h-full w-[1px] bg-cyan-500/20"></div>
+        </div>
+
+        <div class="flex justify-between items-end text-xs">
+          <div class="bg-black/60 p-2 rounded border border-neutral-800">
+            <span class="text-neutral-500">ATTITUDE CONTROL:</span>
+            <span class="text-emerald-400 ml-1">RCS ACTIVE</span>
+          </div>
+          <div class="text-neutral-500 text-[10px]">
+            DRAG (CD): 0.0014 // ORBIT DYNAMICS 60 FPS
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: AUTONOMOUS AI NEURAL TERMINAL (3 COLS) -->
+    <section class="lg:col-span-3 flex flex-col space-y-6">
+      <div class="glass-panel p-5 rounded-lg flex-1 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
+            <h2 class="text-xs uppercase tracking-wider text-neutral-300 flex items-center gap-2">
+              <i data-lucide="cpu" class="w-4 h-4 text-cyan-400"></i> Starlink Neural Copilot
+            </h2>
+            <span class="w-2 h-2 bg-emerald-400 rounded-full"></span>
+          </div>
+
+          <!-- Chat & Telemetry Feed Console -->
+          <div id="ai-logs" class="space-y-3 text-xs overflow-y-auto max-h-[380px] pr-1 font-mono">
+            <div class="text-neutral-500">[SYS_BOOT] Starship AI Copilot Initialized. Target Vector: Mars Insertion Staging.</div>
+            <div class="bg-cyan-950/30 p-2.5 rounded border border-cyan-500/20">
+              <strong class="text-cyan-400">STAR-AI:</strong> Optimal burns calculated. Thermal shield tiles nominal at 1,420°C tolerance limit.
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive AI Prompt Form -->
+        <div class="pt-4 border-t border-neutral-800">
+          <form onsubmit="handleAIQuery(event)" class="relative">
+            <input id="ai-input" type="text" placeholder="Prompt AI: Run re-entry delta-V sim..." class="w-full bg-neutral-950 border border-neutral-800 focus:border-cyan-400 text-xs px-3 py-2.5 rounded text-white outline-none pr-10 font-mono transition">
+            <button type="submit" class="absolute right-2 top-2 text-cyan-400 hover:text-white">
+              <i data-lucide="corner-down-left" class="w-4 h-4"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="triggerSimulatedRCS()" class="glass-panel hover:bg-cyan-500/10 text-cyan-400 p-2.5 rounded text-xs border-cyan-500/30 font-hud tracking-wider flex items-center justify-center gap-2 transition active:scale-95">
+          <i data-lucide="wind" class="w-3.5 h-3.5"></i> PULSE RCS
+        </button>
+        <button onclick="triggerAbortSim()" class="glass-panel hover:bg-red-500/10 text-red-400 p-2.5 rounded text-xs border-red-500/30 font-hud tracking-wider flex items-center justify-center gap-2 transition active:scale-95">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> SIM ABORT
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- BOTTOM STATUS FOOTER -->
+  <footer class="glass-panel border-t border-cyan-500/20 px-6 py-2.5 text-[11px] text-neutral-500 flex flex-wrap justify-between items-center gap-4 z-50">
+    <div>STARSHIP FLIGHT COMPUTER: <span class="text-white font-mono">HEX-REDUNDANT LINUX KERNEL</span></div>
+    <div class="flex items-center space-x-6">
+      <span>STARLINK PING: <span class="text-emerald-400 font-mono">8.2 ms</span></span>
+      <span>DOWNLINK: <span class="text-white font-mono">1.2 Gbps</span></span>
+      <span class="text-cyan-400">STATUS: FULL ORBITAL LOCK</span>
+    </div>
+  </footer>
+
+  <!-- WebGL, Sound & System Logic -->
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    /* ========================================================
+       1. SYNTHETIC AUDIO ENGINE (Web Audio API)
+       ======================================================== */
+    let audioCtx = null;
+    let audioEnabled = false;
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    function playBeep(freq = 880, type = 'sine', duration = 0.08) {
+      if (!audioEnabled || !audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) { console.error(e); }
+    }
+
+    function toggleAudio() {
+      initAudio();
+      audioEnabled = !audioEnabled;
+      document.getElementById('audio-label').textContent = audioEnabled ? "COMM AUDIO: LIVE" : "COMM AUDIO: OFF";
+      document.getElementById('audio-toggle').classList.toggle('bg-cyan-500/20', audioEnabled);
+      if (audioEnabled) playBeep(1200, 'triangle', 0.15);
+    }
+
+    /* ========================================================
+       2. THREE.JS 3D ORBITAL WIREFRAME ENGINE
+       ======================================================== */
+    const container = document.getElementById('webgl-container');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    container.appendChild(renderer.domElement);
+
+    // Wireframe Earth Globe
+    const globeGeo = new THREE.SphereGeometry(4, 32, 32);
+    const globeMat = new THREE.MeshBasicMaterial({
+      color: 0x00F3FF,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.18
+    });
+    const globe = new THREE.Mesh(globeGeo, globeMat);
+    scene.add(globe);
+
+    // Inner Core Atmosphere Glow
+    const coreGeo = new THREE.SphereGeometry(3.9, 24, 24);
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: 0x021526,
+      transparent: true,
+      opacity: 0.6
+    });
+    scene.add(new THREE.Mesh(coreGeo, coreMat));
+
+    // Starship Trajectory Orbital Ring
+    const orbitCurve = new THREE.EllipseCurve(0, 0, 5.8, 5.2, 0, 2 * Math.PI, false, 0);
+    const points = orbitCurve.getPoints(100);
+    const orbitGeo = new THREE.BufferGeometry().setFromPoints(points.map(p => new THREE.Vector3(p.x, 0, p.y)));
+    const orbitMat = new THREE.LineBasicMaterial({ color: 0x00F3FF, transparent: true, opacity: 0.5 });
+    const orbitLine = new THREE.Line(orbitGeo, orbitMat);
+    orbitLine.rotation.x = Math.PI / 3;
+    orbitLine.rotation.y = Math.PI / 6;
+    scene.add(orbitLine);
+
+    // Starship Vector Model (Abstract Geometric Mesh)
+    const shipGeo = new THREE.ConeGeometry(0.2, 0.6, 4);
+    const shipMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+    const starship = new THREE.Mesh(shipGeo, shipMat);
+    scene.add(starship);
+
+    camera.position.z = 12;
+    camera.position.y = 4;
+    camera.lookAt(0, 0, 0);
+
+    let angle = 0;
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Rotate Earth
+      globe.rotation.y += 0.0015;
+
+      // Orbit Starship along trajectory
+      angle += 0.012;
+      const rX = 5.8 * Math.cos(angle);
+      const rZ = 5.2 * Math.sin(angle);
+      starship.position.set(
+        rX * Math.cos(Math.PI / 6) - rZ * Math.sin(Math.PI / 6) * Math.cos(Math.PI / 3),
+        rZ * Math.sin(Math.PI / 3),
+        rX * Math.sin(Math.PI / 6) + rZ * Math.cos(Math.PI / 6) * Math.cos(Math.PI / 3)
+      );
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      if (!container) return;
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    /* ========================================================
+       3. TELEMETRY & CHRONOMETER REAL-TIME CLOCK
+       ======================================================== */
+    let startTime = Date.now() - 14 * 60 * 1000 - 32 * 1000;
+    setInterval(() => {
+      const delta = Date.now() - startTime;
+      const hrs = String(Math.floor(delta / 3600000)).padStart(2, '0');
+      const mins = String(Math.floor((delta % 3600000) / 60000)).padStart(2, '0');
+      const secs = String(Math.floor((delta % 60000) / 1000)).padStart(2, '0');
+      const ms = String(Math.floor((delta % 1000) / 10)).padStart(2, '0');
+      document.getElementById('mission-timer').textContent = `T+ ${hrs}:${mins}:${secs}.${ms}`;
+
+      // Jitter telemetry values subtly for hyper-realism
+      const pcVal = (352 + Math.random() * 2 - 1).toFixed(1);
+      document.getElementById('pc-val').textContent = `${pcVal} bar`;
+      
+      const vel = (7810 + Math.random() * 5).toFixed(0);
+      document.getElementById('vel-stat').textContent = `${Number(vel).toLocaleString()} m/s`;
+    }, 100);
+
+    /* ========================================================
+       4. INTERACTIVE CONTROLS & AI COPILOT
+       ======================================================== */
+    function updateThrust(val) {
+      document.getElementById('thrust-display').textContent = val + '%';
+      document.getElementById('pc-bar').style.width = val + '%';
+      playBeep(200 + val * 5, 'sawtooth', 0.05);
+    }
+
+    function triggerSimulatedRCS() {
+      playBeep(180, 'square', 0.12);
+      appendLog("RCS", "Attitude thruster burst fired: 40ms pulse [Pitch: +0.02°, Yaw: Nominal]");
+    }
+
+    function triggerAbortSim() {
+      playBeep(440, 'sawtooth', 0.3);
+      appendLog("WARNING", "Simulated abort criteria requested: Stage separation failsafe armed.");
+    }
+
+    function handleAIQuery(e) {
+      e.preventDefault();
+      const input = document.getElementById('ai-input');
+      const query = input.value.trim();
+      if (!query) return;
+
+      appendLog("USER", query);
+      input.value = "";
+      playBeep(900, 'sine', 0.04);
+
+      // Simulated AI Neural Response
+      setTimeout(() => {
+        const responses = [
+          `Telemetry confirmed for "${query}". Raptor gimbal vector optimized by 0.14° for minimum fuel boil-off.`,
+          `Neural Copilot computing trajectory matrix. Orbital apogee locked at 250km with 99.8% probability.`,
+          `Thermal shield telemetry cross-referenced with query. Heat dispersal within margin of safety.`
+        ];
+        const reply = responses[Math.floor(Math.random() * responses.length)];
+        appendLog("STAR-AI", reply);
+        playBeep(1400, 'triangle', 0.08);
+      }, 400);
+    }
+
+    function appendLog(sender, text) {
+      const logs = document.getElementById('ai-logs');
+      const msg = document.createElement('div');
+      msg.className = sender === 'STAR-AI' 
+        ? 'bg-cyan-950/30 p-2.5 rounded border border-cyan-500/20' 
+        : (sender === 'WARNING' ? 'bg-red-950/40 p-2.5 rounded border border-red-500/30 text-red-300' : 'text-neutral-400');
+      
+      msg.innerHTML = `<strong class="${sender === 'STAR-AI' ? 'text-cyan-400' : (sender === 'WARNING' ? 'text-red-400' : 'text-white')}">${sender}:</strong> ${text}`;
+      logs.appendChild(msg);
+      logs.scrollTop = logs.scrollHeight;
+    }
+  </script>
+</body>
+</html>
