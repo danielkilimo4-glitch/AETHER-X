@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AETHER OS // SpaceX Mission Station</title>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS, Three.js & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body {
+      background-color: #07080B;
+      color: #E2E8F0;
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+      overflow: hidden;
+    }
+    .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
+
+    /* Modern App Glass Panels */
+    .app-window {
+      background: rgba(13, 16, 23, 0.85);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+    .app-window-active {
+      border-color: rgba(0, 243, 255, 0.3);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(0, 243, 255, 0.15);
+    }
+
+    /* Subtle App Grid Background */
+    .desktop-bg {
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(0, 243, 255, 0.08) 0%, transparent 60%),
+        radial-gradient(circle at 100% 100%, rgba(255, 46, 81, 0.04) 0%, transparent 50%);
+    }
+
+    /* Keyboard Badge Styling */
+    .kbd-badge {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+  </style>
+</head>
+<body class="desktop-bg h-screen w-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-black">
+
+  <!-- 1. TOP APPLICATION MENU BAR (macOS / Linux Station Style) -->
+  <header class="h-8 bg-[#0A0D14]/90 border-b border-white/10 px-4 flex items-center justify-between text-xs z-50">
+    <div class="flex items-center space-x-5">
+      <!-- SpaceX OS Logo -->
+      <div class="flex items-center space-x-2 font-semibold text-white tracking-wider">
+        <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+        <span class="text-xs font-mono-tech">AETHER OS</span>
+      </div>
+
+      <!-- App Dropdown Menus -->
+      <nav class="hidden sm:flex items-center space-x-4 text-neutral-400 text-[11px]">
+        <button class="hover:text-white transition">Mission</button>
+        <button class="hover:text-white transition">Telemetry</button>
+        <button class="hover:text-white transition">Gimbal</button>
+        <button class="hover:text-white transition">Starlink Link</button>
+        <button class="hover:text-white transition">Diagnostics</button>
+      </nav>
+    </div>
+
+    <!-- Quick Search / Command Palette Trigger & System Indicators -->
+    <div class="flex items-center space-x-4">
+      <button onclick="toggleCommandPalette()" class="hidden md:flex items-center space-x-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 px-2.5 py-0.5 rounded border border-white/10 text-[11px] transition">
+        <i data-lucide="search" class="w-3 h-3"></i>
+        <span>Quick Command</span>
+        <span class="kbd-badge ml-1">⌘K</span>
+      </button>
+
+      <!-- Telemetry Status Pills -->
+      <div class="flex items-center space-x-3 text-[11px] font-mono-tech text-neutral-400 border-l border-white/10 pl-4">
+        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> 1.4 Gbps</span>
+        <span class="text-neutral-500">•</span>
+        <span class="text-cyan-400" id="live-clock">12:00:00 UTC</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 2. MAIN APPLICATION WORKSPACE -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- LEFT APP NAVIGATION RAIL (Like Linear / VS Code / Slack) -->
+    <aside class="w-14 bg-[#090C12]/90 border-r border-white/10 flex flex-col items-center py-4 space-y-6 z-20">
+      <button onclick="switchView('telemetry')" id="nav-telemetry" title="Flight Telemetry" class="p-2.5 rounded-lg text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 transition">
+        <i data-lucide="activity" class="w-5 h-5"></i>
+      </button>
+      <button onclick="switchView('orbit')" id="nav-orbit" title="3D Orbital Map" class="p-2.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition">
+        <i data-lucide="globe" class="w-5 h-5"></i>
+      </button>
+      <button onclick="switchView('ai')" id="nav-ai" title="AI Copilot Agent" class="p-2.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition relative">
+        <i data-lucide="bot" class="w-5 h-5"></i>
+        <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-cyan-400"></span>
+      </button>
+      <button onclick="switchView('engines')" id="nav-engines" title="Raptor Propulsion" class="p-2.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition">
+        <i data-lucide="flame" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex-1"></div>
+
+      <button onclick="toggleCommandPalette()" title="Command Palette" class="p-2.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition">
+        <i data-lucide="terminal" class="w-5 h-5"></i>
+      </button>
+      <button onclick="triggerNotification('Starlink Sync', 'All 32 orbital beam spot grids optimized.')" title="Settings" class="p-2.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition">
+        <i data-lucide="settings" class="w-5 h-5"></i>
+      </button>
+    </aside>
+
+    <!-- WORKSPACE CANVAS (Contains Multi-Window Layout) -->
+    <main class="flex-1 p-5 grid grid-cols-12 gap-5 overflow-y-auto">
+
+      <!-- WINDOW 1: MAIN 3D ORBIT TRACKER (8 COLS) -->
+      <section class="col-span-12 lg:col-span-8 app-window app-window-active rounded-xl flex flex-col overflow-hidden">
+        <!-- Window Chrome / Titlebar -->
+        <div class="h-9 px-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+          <div class="flex items-center space-x-2">
+            <!-- Window Control Traffic Lights -->
+            <div class="flex space-x-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-red-500/80 cursor-pointer hover:opacity-100"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80 cursor-pointer hover:opacity-100"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80 cursor-pointer hover:opacity-100"></span>
+            </div>
+            <span class="text-xs font-medium text-neutral-300 ml-2">OrbitVisualizer.app — Live Trajectory Feed</span>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <span class="kbd-badge">WebGL 2.0</span>
+            <span class="text-[11px] font-mono-tech text-cyan-400">APOGEE: 421 KM</span>
+          </div>
+        </div>
+
+        <!-- 3D Canvas Mount Frame -->
+        <div class="flex-1 relative min-h-[360px] bg-black/60">
+          <div id="threejs-globe" class="absolute inset-0 w-full h-full"></div>
+
+          <!-- Glass Floating HUD Widgets Inside Window -->
+          <div class="absolute top-4 left-4 p-3 bg-neutral-950/80 border border-white/10 rounded-lg text-xs font-mono-tech space-y-1 backdrop-blur-md">
+            <div class="text-neutral-500">ORBITAL VECTOR</div>
+            <div class="text-white font-bold">28,124 km/h <span class="text-emerald-400 text-[10px]">▲ NOMINAL</span></div>
+            <div class="text-neutral-400 text-[11px]">INCLINATION: 51.6°</div>
+          </div>
+        </div>
+
+        <!-- Window Action Bottom Bar -->
+        <div class="h-10 px-4 border-t border-white/10 flex items-center justify-between text-xs bg-white/[0.01]">
+          <div class="flex items-center space-x-4 text-neutral-400">
+            <span>Stage: <strong class="text-white">Starship S31</strong></span>
+            <span>Relay: <strong class="text-cyan-400">STARLINK-7128</strong></span>
+          </div>
+          <button onclick="triggerNotification('Attitude Thrusters', 'RCS cold-gas burst: Roll normalized.')" class="px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-neutral-200 text-xs transition">
+            Stabilize RCS
+          </button>
+        </div>
+      </section>
+
+      <!-- WINDOW 2: RAPTOR PROPULSION & METRICS (4 COLS) -->
+      <section class="col-span-12 lg:col-span-4 app-window rounded-xl flex flex-col">
+        <div class="h-9 px-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+          <span class="text-xs font-medium text-neutral-300">PropulsionTelemetry.pane</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        </div>
+
+        <div class="p-4 space-y-4 flex-1 text-xs">
+          <div>
+            <div class="flex justify-between text-neutral-400 mb-1">
+              <span>Raptor Vacuum #1 (Chamber)</span>
+              <span class="text-cyan-400 font-mono-tech">350 bar</span>
+            </div>
+            <div class="w-full bg-neutral-900 h-1.5 rounded-full overflow-hidden">
+              <div class="bg-gradient-to-r from-cyan-400 to-blue-500 h-full w-[88%]"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-neutral-400 mb-1">
+              <span>Raptor Vacuum #2 (Chamber)</span>
+              <span class="text-cyan-400 font-mono-tech">348 bar</span>
+            </div>
+            <div class="w-full bg-neutral-900 h-1.5 rounded-full overflow-hidden">
+              <div class="bg-gradient-to-r from-cyan-400 to-blue-500 h-full w-[86%]"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-neutral-400 mb-1">
+              <span>Main Tank Cryo Chill (LOX)</span>
+              <span class="text-emerald-400 font-mono-tech">98.2% OPTIMAL</span>
+            </div>
+            <div class="w-full bg-neutral-900 h-1.5 rounded-full overflow-hidden">
+              <div class="bg-emerald-400 h-full w-[98%]"></div>
+            </div>
+          </div>
+
+          <div class="p-3 bg-neutral-900/60 rounded-lg border border-white/5 space-y-2 mt-4">
+            <div class="flex justify-between font-mono-tech">
+              <span class="text-neutral-500">MAX-Q PRESSURE</span>
+              <span class="text-white">0.00 kPa (VACUUM)</span>
+            </div>
+            <div class="flex justify-between font-mono-tech">
+              <span class="text-neutral-500">DOWN-RANGE DIST</span>
+              <span class="text-white">1,894 km</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- WINDOW 3: AI COPILOT INTERACTIVE TERMINAL (LINEAR / CHAT STYLE) (12 COLS) -->
+      <section class="col-span-12 app-window rounded-xl flex flex-col min-h-[220px]">
+        <div class="h-9 px-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
+            <span class="text-xs font-medium text-white">Autonomous AI Flight Assistant</span>
+          </div>
+          <span class="text-[10px] text-neutral-500 font-mono-tech">LLM MODEL: STAR-ORBIT-V9 (QUANTUM HOSTED)</span>
+        </div>
+
+        <div id="ai-chat-thread" class="p-4 flex-1 space-y-3 text-xs overflow-y-auto max-h-[140px] font-mono-tech">
+          <div class="flex items-start space-x-2">
+            <span class="text-cyan-400 font-bold">[AI]:</span>
+            <span class="text-neutral-300">All 33 Super Heavy boosters completed separation. Starship upper stage burn nominal. Awaiting command prompt or orbital burns.</span>
+          </div>
+        </div>
+
+        <!-- Chat Input Bar -->
+        <div class="p-3 border-t border-white/10 bg-black/40">
+          <form onsubmit="sendCopilotMessage(event)" class="flex gap-2">
+            <input id="copilot-text" type="text" placeholder="Ask AI Copilot: Calculate orbital burn delta-V, simulate heat shield stress..." class="flex-1 bg-neutral-900 border border-white/10 focus:border-cyan-400 rounded-lg px-3 py-2 text-xs text-white placeholder-neutral-500 outline-none transition">
+            <button type="submit" class="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold rounded-lg text-xs transition flex items-center gap-1.5">
+              <span>Send</span>
+              <i data-lucide="arrow-right" class="w-3 h-3"></i>
+            </button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 3. RAYCAST / LINEAR STYLE COMMAND PALETTE MODAL (CMD + K) -->
+  <div id="cmd-palette" class="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="w-full max-w-lg app-window rounded-xl overflow-hidden shadow-2xl border border-white/20 animate-in fade-in zoom-in-95 duration-150">
+      <div class="p-3 border-b border-white/10 flex items-center space-x-3">
+        <i data-lucide="search" class="w-4 h-4 text-cyan-400"></i>
+        <input id="cmd-search" oninput="filterCommands(this.value)" type="text" placeholder="Type a command or flight task..." class="flex-1 bg-transparent text-sm text-white outline-none placeholder-neutral-500 font-mono-tech">
+        <span class="kbd-badge">ESC</span>
+      </div>
+
+      <div id="cmd-list" class="p-2 space-y-1 text-xs max-h-60 overflow-y-auto">
+        <div onclick="executeCmd('RCS')" class="p-2.5 rounded-lg hover:bg-white/10 cursor-pointer flex items-center justify-between text-neutral-200">
+          <div class="flex items-center gap-2"><i data-lucide="zap" class="w-4 h-4 text-cyan-400"></i> Pulse Nitrogen RCS Thrusters</div>
+          <span class="kbd-badge">↵</span>
+        </div>
+        <div onclick="executeCmd('BURNDELTA')" class="p-2.5 rounded-lg hover:bg-white/10 cursor-pointer flex items-center justify-between text-neutral-200">
+          <div class="flex items-center gap-2"><i data-lucide="flame" class="w-4 h-4 text-amber-400"></i> Run 12s Apogee Circularization Burn</div>
+          <span class="kbd-badge">↵</span>
+        </div>
+        <div onclick="executeCmd('STARLINK')" class="p-2.5 rounded-lg hover:bg-white/10 cursor-pointer flex items-center justify-between text-neutral-200">
+          <div class="flex items-center gap-2"><i data-lucide="refresh-cw" class="w-4 h-4 text-emerald-400"></i> Recalibrate Starlink Laser ISL</div>
+          <span class="kbd-badge">↵</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. TOAST NOTIFICATION CONTAINER (SLIDES IN LIKE SLACK/LINEAR) -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- APPLICATION SCRIPTS -->
+  <script>
+    lucide.createIcons();
+
+    /* ========================================================
+       1. THREE.JS 3D ORBITAL WIREFRAME
+       ======================================================== */
+    const mount = document.getElementById('threejs-globe');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, mount.clientWidth / mount.clientHeight, 0.1, 100);
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    
+    renderer.setSize(mount.clientWidth, mount.clientHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    mount.appendChild(renderer.domElement);
+
+    // Planet Earth Sphere
+    const earthGeo = new THREE.SphereGeometry(3.2, 32, 32);
+    const earthMat = new THREE.MeshBasicMaterial({ color: 0x00F3FF, wireframe: true, transparent: true, opacity: 0.25 });
+    const globe = new THREE.Mesh(earthGeo, earthMat);
+    scene.add(globe);
+
+    // Trajectory Curve
+    const curve = new THREE.EllipseCurve(0, 0, 4.6, 4.2, 0, 2 * Math.PI, false, 0);
+    const pts = curve.getPoints(80);
+    const ringGeo = new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(p.x, 0, p.y)));
+    const ringMat = new THREE.LineBasicMaterial({ color: 0x00F3FF, transparent: true, opacity: 0.5 });
+    const ring = new THREE.Line(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2.8;
+    scene.add(ring);
+
+    camera.position.z = 10;
+    camera.position.y = 2.5;
+    camera.lookAt(0, 0, 0);
+
+    function animate() {
+      requestAnimationFrame(animate);
+      globe.rotation.y += 0.002;
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = mount.clientWidth / mount.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(mount.clientWidth, mount.clientHeight);
+    });
+
+    /* ========================================================
+       2. REAL-TIME OS CLOCK
+       ======================================================== */
+    setInterval(() => {
+      const now = new Date();
+      document.getElementById('live-clock').textContent = now.toTimeString().split(' ')[0] + ' UTC';
+    }, 1000);
+
+    /* ========================================================
+       3. RAYCAST / LINEAR STYLE COMMAND PALETTE
+       ======================================================== */
+    function toggleCommandPalette() {
+      const p = document.getElementById('cmd-palette');
+      p.classList.toggle('hidden');
+      if (!p.classList.contains('hidden')) {
+        setTimeout(() => document.getElementById('cmd-search').focus(), 50);
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        toggleCommandPalette();
+      }
+      if (e.key === 'Escape') {
+        document.getElementById('cmd-palette').classList.add('hidden');
+      }
+    });
+
+    function executeCmd(type) {
+      toggleCommandPalette();
+      if (type === 'RCS') {
+        triggerNotification('RCS System', 'Attitude thruster cold-gas fired for 50ms.');
+      } else if (type === 'BURNDELTA') {
+        triggerNotification('Orbital Burn', 'Apogee circularization burn successfully scheduled.');
+      } else if (type === 'STARLINK') {
+        triggerNotification('Starlink Constellation', 'Laser Inter-Satellite Link calibrated.');
+      }
+    }
+
+    /* ========================================================
+       4. TOAST NOTIFICATION ENGINE
+       ======================================================== */
+    function triggerNotification(title, text) {
+      const c = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'pointer-events-auto bg-[#0E121B] border border-cyan-500/30 p-3.5 rounded-lg shadow-xl text-xs w-72 flex items-start space-x-3 transition-all duration-300 transform translate-y-2';
+      toast.innerHTML = `
+        <div class="w-2 h-2 rounded-full bg-cyan-400 mt-1"></div>
+        <div class="flex-1">
+          <div class="font-semibold text-white">${title}</div>
+          <div class="text-neutral-400 mt-0.5 text-[11px]">${text}</div>
+        </div>
+      `;
+      c.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+
+    /* ========================================================
+       5. CHAT COPILOT
+       ======================================================== */
+    function sendCopilotMessage(e) {
+      e.preventDefault();
+      const input = document.getElementById('copilot-text');
+      const val = input.value.trim();
+  
